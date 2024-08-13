@@ -3,66 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Oscilloscope with FFT</title>
-    <style>
-        canvas {
-            width: 100%;
-            height: 400px;
-            background: #000;
-        }
-    </style>
+    <title>3D FFT Visualization with p5.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
 </head>
 <body>
-    <h1>Web Oscilloscope with FFT</h1>
-    <canvas id="oscilloscope"></canvas>
-
     <script>
-        // 오실로스코프를 그릴 캔버스와 컨텍스트를 가져옵니다.
-        const canvas = document.getElementById('oscilloscope');
-        const canvasCtx = canvas.getContext('2d');
+        let mic, fft;
 
-        canvas.width = window.innerWidth;
-        canvas.height = 400;
+        function setup() {
+            createCanvas(windowWidth, windowHeight, WEBGL);
+            noFill();
 
-        // AudioContext 및 필요한 요소들을 초기화합니다.
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;  // FFT 사이즈 설정
+            // 마이크 설정
+            mic = new p5.AudioIn();
+            mic.start();
 
-        const bufferLength = analyser.frequencyBinCount;  // 주파수 데이터 크기
-        const dataArray = new Uint8Array(bufferLength);  // 주파수 데이터를 저장할 배열
-
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            const source = audioContext.createMediaStreamSource(stream);
-            source.connect(analyser);
-            draw();
-        }).catch(err => {
-            console.error('Error accessing microphone:', err);
-        });
+            // FFT 설정
+            fft = new p5.FFT(0.8, 64);  // 64개의 주파수 바 사용
+            fft.setInput(mic);
+        }
 
         function draw() {
-            requestAnimationFrame(draw);
+            background(0);
 
-            // 주파수 데이터를 가져옴
-            analyser.getByteFrequencyData(dataArray);
+            // FFT 분석
+            let spectrum = fft.analyze();
 
-            // 캔버스를 초기화
-            canvasCtx.fillStyle = 'black';
-            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            rotateY(frameCount * 0.01);  // 회전 효과
 
-            // 주파수 데이터를 그리기
-            const barWidth = (canvas.width / bufferLength) * 2.5;
-            let barHeight;
-            let x = 0;
+            // 스펙트럼을 3D 형태로 그리기
+            for (let i = 0; i < spectrum.length; i++) {
+                let amp = spectrum[i];
+                let y = map(amp, 0, 255, height / 2, 0);
+                let x = map(i, 0, spectrum.length, -width / 2, width / 2);
+                let z = map(amp, 0, 255, -200, 200);
 
-            for (let i = 0; i < bufferLength; i++) {
-                barHeight = dataArray[i];
-
-                // 각 주파수 대역을 막대 그래프로 시각화
-                canvasCtx.fillStyle = `rgb(${barHeight + 100},50,50)`;
-                canvasCtx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight / 2);
-
-                x += barWidth + 1;
+                stroke(255);
+                line(x, y, z, x, height / 2, 0);
             }
         }
     </script>
