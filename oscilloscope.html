@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D FFT Visualization with Flowing Historical Data</title>
+    <title>3D FFT Visualization with Separated Spectrum and Waveform</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
     <style>
@@ -58,28 +58,31 @@
             rotateX(rotX);
             rotateY(rotY);
 
-            // 히스토리 데이터 그리기
+            // 스펙트럼 그리기 (위쪽)
+            push();
+            translate(0, -height/4, 0);
             for (let h = 0; h < history.length; h++) {
                 let alpha = map(h, 0, history.length - 1, 255, 0);
-                drawSpectrum(history[h].spectrum, history[h].waveform, h, alpha);
+                drawSpectrum(history[h].spectrum, h, alpha);
             }
+            pop();
 
-            // 중앙 구체 그리기
+            // 파형 그리기 (아래쪽)
             push();
-            noStroke();
-            let bassLevel = fft.getEnergy("bass");
-            let r = map(bassLevel, 0, 255, 20, 100);
-            fill(255, 0, 0, 200);
-            sphere(r);
+            translate(0, height/4, 0);
+            for (let h = 0; h < history.length; h++) {
+                let alpha = map(h, 0, history.length - 1, 255, 0);
+                drawWaveform(history[h].waveform, h, alpha);
+            }
             pop();
         }
 
-        function drawSpectrum(spectrum, waveform, offset, alpha) {
+        function drawSpectrum(spectrum, offset, alpha) {
             for (let i = 0; i < spectrum.length; i++) {
                 let amp = spectrum[i];
-                let y = map(amp, 0, 255, height/2, -height/2) * sensitivity;
+                let y = map(amp, 0, 255, 0, -height/2) * sensitivity;
                 let x = map(i, 0, spectrum.length, -width/2, width/2);
-                let z = map(waveform[i], -1, 1, -100, 100) - offset * 10;
+                let z = -offset * 10;
 
                 let hue = map(i, 0, spectrum.length, 0, 360);
                 colorMode(HSB, 360, 100, 100, 255);
@@ -90,6 +93,19 @@
                 box(width/spectrum.length, abs(y), 5);
                 pop();
             }
+        }
+
+        function drawWaveform(waveform, offset, alpha) {
+            beginShape();
+            for (let i = 0; i < waveform.length; i++) {
+                let x = map(i, 0, waveform.length, -width/2, width/2);
+                let y = map(waveform[i], -1, 1, -height/4, height/4) * sensitivity;
+                let z = -offset * 10;
+
+                stroke(255, alpha);
+                vertex(x, y, z);
+            }
+            endShape();
         }
 
         function toggleMic() {
