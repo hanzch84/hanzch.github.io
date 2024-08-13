@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D FFT Visualization with Separated Spectrum and Waveform</title>
+    <title>Improved 3D FFT Visualization with p5.js</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
     <style>
@@ -21,21 +21,20 @@
         let mic, fft;
         let sensitivity = 1;
         let micOn = false;
-        let rotX = 0;
-        let rotY = 0;
-        let history = [];
-        const maxHistory = 50; // 저장할 최대 히스토리 개수
 
         function setup() {
             createCanvas(windowWidth, windowHeight, WEBGL);
             noFill();
 
+            // 마이크 설정
             mic = new p5.AudioIn();
             mic.start();
 
+            // FFT 설정
             fft = new p5.FFT(0.8, 128);
             fft.setInput(mic);
 
+            // 컨트롤 설정
             document.getElementById('toggleMic').addEventListener('click', toggleMic);
             document.getElementById('sensitivity').addEventListener('input', (e) => {
                 sensitivity = e.target.value;
@@ -45,67 +44,45 @@
         function draw() {
             background(0);
 
+            // FFT 분석
             let spectrum = fft.analyze();
             let waveform = fft.waveform();
 
-            // 현재 데이터를 히스토리에 추가
-            history.unshift({ spectrum: [...spectrum], waveform: [...waveform] });
-            if (history.length > maxHistory) {
-                history.pop();
-            }
+            // 카메라 위치 설정
+            let camX = map(mouseX, 0, width, -200, 200);
+            let camY = map(mouseY, 0, height, -200, 200);
+            camera(camX, camY, (height/2) / tan(PI/6), 0, 0, 0, 0, 1, 0);
 
-            // 사용자 제어 회전
-            rotateX(rotX);
-            rotateY(rotY);
+            // 회전 효과
+            rotateY(frameCount * 0.01);
 
-            // 스펙트럼 그리기 (위쪽)
-            push();
-            translate(0, -height/4, 0);
-            for (let h = 0; h < history.length; h++) {
-                let alpha = map(h, 0, history.length - 1, 255, 0);
-                drawSpectrum(history[h].spectrum, h, alpha);
-            }
-            pop();
-
-            // 파형 그리기 (아래쪽)
-            push();
-            translate(0, height/4, 0);
-            for (let h = 0; h < history.length; h++) {
-                let alpha = map(h, 0, history.length - 1, 255, 0);
-                drawWaveform(history[h].waveform, h, alpha);
-            }
-            pop();
-        }
-
-        function drawSpectrum(spectrum, offset, alpha) {
+            // 스펙트럼을 3D 형태로 그리기
             for (let i = 0; i < spectrum.length; i++) {
                 let amp = spectrum[i];
-                let y = map(amp, 0, 255, 0, -height/2) * sensitivity;
+                let y = map(amp, 0, 255, height/2, -height/2) * sensitivity;
                 let x = map(i, 0, spectrum.length, -width/2, width/2);
-                let z = -offset * 10;
+                let z = map(waveform[i], -1, 1, -100, 100);
 
+                // 색상 설정
                 let hue = map(i, 0, spectrum.length, 0, 360);
-                colorMode(HSB, 360, 100, 100, 255);
-                stroke(hue, 100, 100, alpha);
+                colorMode(HSB);
+                stroke(hue, 100, 100);
 
+                // 3D 박스 그리기
                 push();
                 translate(x, y/2, z);
-                box(width/spectrum.length, abs(y), 5);
+                box(width/spectrum.length, abs(y), 10);
                 pop();
             }
-        }
 
-        function drawWaveform(waveform, offset, alpha) {
-            beginShape();
-            for (let i = 0; i < waveform.length; i++) {
-                let x = map(i, 0, waveform.length, -width/2, width/2);
-                let y = map(waveform[i], -1, 1, -height/4, height/4) * sensitivity;
-                let z = -offset * 10;
-
-                stroke(255, alpha);
-                vertex(x, y, z);
-            }
-            endShape();
+            // 중앙 구체 그리기
+            push();
+            noStroke();
+            let bassLevel = fft.getEnergy("bass");
+            let r = map(bassLevel, 0, 255, 20, 100);
+            fill(255, 0, 0);
+            sphere(r);
+            pop();
         }
 
         function toggleMic() {
@@ -116,11 +93,6 @@
                 mic.start();
                 micOn = true;
             }
-        }
-
-        function mouseDragged() {
-            rotY += (mouseX - pmouseX) * 0.01;
-            rotX += (mouseY - pmouseY) * 0.01;
         }
 
         function windowResized() {
